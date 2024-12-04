@@ -1,0 +1,110 @@
+#define BLYNK_TEMPLATE_ID "TMPL6tvjLmh9S"
+#define BLYNK_TEMPLATE_NAME "Lamp Switch"
+#define BLYNK_AUTH_TOKEN "UXMm0rMIwZ9BnLZeUn2LNo9jh4pDEOj8"
+#define BLYNK_PRINT Serial
+
+#include <WiFi.h>
+#include <WiFiClient.h>
+#include <BlynkSimpleEsp32.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
+char auth[] = "UXMm0rMIwZ9BnLZeUn2LNo9jh4pDEOj8";
+char ssid[] = "Boarding Diary";
+char pass[] = "";
+
+const int pinRelay = 25;
+const int SoundSensor = 36;
+bool isRelayOn = false;
+bool soundSensorEnabled = true;
+
+LiquidCrystal_I2C lcd(0x27, 16, 2); // Objek LCD dengan alamat 0x27 dan ukuran 16x2
+
+BLYNK_WRITE(V1) {
+  int relayControl = param.asInt();
+  Serial.print("Nilai V1: ");
+  Serial.println(relayControl);
+
+  if (relayControl == 1) {
+    digitalWrite(pinRelay, HIGH);
+    isRelayOn = false;
+    Blynk.virtualWrite(V1, "Relay is ON!");
+    Serial.println("Relay is ON");
+  } else if (relayControl == 0) {
+    digitalWrite(pinRelay, LOW);
+    isRelayOn = true;
+    Blynk.virtualWrite(V1, "Relay is OFF!");
+    Serial.println("Relay is OFF");
+  }
+
+  updateLCDStatus();
+}
+
+BLYNK_WRITE(V2) {
+  soundSensorEnabled = param.asInt();
+}
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(pinRelay, OUTPUT);
+  pinMode(SoundSensor, INPUT);
+  digitalWrite(pinRelay, LOW); // Pastikan relay dimatikan secara default
+
+  // Inisialisasi LCD
+  Wire.begin(27, 26); // SDA on GPIO 27, SCL on GPIO 26
+  
+  // Initialize the LCD
+  lcd.begin(16, 2); // Assuming you have a 16x2 LCD
+  lcd.init();
+  lcd.backlight();
+  lcd.setCursor(0, 0);
+  lcd.print("Lampu: OFF");
+  lcd.setCursor(0, 1);
+  lcd.print("Sensor: Aktif");
+  
+  Blynk.begin(auth, ssid, pass);
+  Serial.println("Blynk dan WiFi setup selesai");
+}
+
+void loop() {
+  Blynk.run();
+  
+  if (soundSensorEnabled) {
+    int SensorData = digitalRead(SoundSensor);
+    Serial.println(SensorData);
+    if (SensorData == 1) {
+      if (!isRelayOn) {
+        digitalWrite(pinRelay, LOW);
+        isRelayOn = true;
+        Blynk.virtualWrite(V1, 0); // Mengirim status OFF ke Blynk
+      } else {
+        digitalWrite(pinRelay, HIGH);
+        isRelayOn = false;
+        Blynk.virtualWrite(V1, 1); // Mengirim status ON ke Blynk
+      }
+      delay(500); // Debounce delay
+    }
+  }
+
+  updateLCDStatus(); // Memanggil fungsi untuk memperbarui status LCD
+}
+
+
+void updateLCDStatus() {
+  lcd.setCursor(7, 0);
+  if (isRelayOn) {
+    lcd.print("OFF");
+  } else {
+    lcd.print("ON  ");
+  }
+
+  lcd.setCursor(8, 1);
+  if (soundSensorEnabled) {
+    lcd.print("Aktif   ");
+  } else {
+    lcd.print("Nonaktif");
+  }
+}
+
+
+
