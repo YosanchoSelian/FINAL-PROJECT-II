@@ -1,0 +1,77 @@
+#define BLYNK_TEMPLATE_ID "TMPL6tvjLmh9S"
+#define BLYNK_TEMPLATE_NAME "Lamp Switch"
+#define BLYNK_PRINT Serial
+
+#include <WiFi.h>
+#include <WiFiClient.h>
+#include <BlynkSimpleEsp32.h>
+
+char auth[] = "UXMm0rMIwZ9BnLZeUn2LNo9jh4pDEOj8";
+char ssid[] = "Boarding Diary";
+char pass[] = "";
+
+const int pinRelay = 25;
+const int SoundSensor = 36; // LM393 Sound Sensor Digital Pin D0 connected to pin 36
+bool isRelayOn = false;
+boolean LEDStatus = false;
+bool soundSensorEnabled = true; // Default: Sound sensor is enabled
+
+BLYNK_WRITE(V1) {
+  int relayControl = param.asInt();
+  Serial.print("Nilai V1: ");
+  Serial.println(relayControl);
+
+  // Adjusting the values received from Blynk to control the relay
+  if (relayControl == 255) {
+    digitalWrite(pinRelay, LOW);  // Turn on relay
+    isRelayOn = true;
+    Blynk.virtualWrite(V1, "Relay is ON!");  // Send message to Blynk
+    Serial.println("Relay is ON");
+  } else if (relayControl == 0) {
+    digitalWrite(pinRelay, HIGH); // Turn off relay
+    isRelayOn = false;
+    Blynk.virtualWrite(V1, "Relay is OFF!"); // Send message to Blynk
+    Serial.println("Relay is OFF");
+  }
+}
+
+BLYNK_WRITE(V2) { // Blynk switch to control the sound sensor
+  soundSensorEnabled = param.asInt();
+}
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(pinRelay, OUTPUT);
+  pinMode(SoundSensor, INPUT);
+  digitalWrite(pinRelay, HIGH); // Ensure relay is off initially
+
+  Blynk.begin(auth, ssid, pass);
+  Serial.println("Blynk dan WiFi setup selesai");
+}
+
+void loop() {
+  Blynk.run();
+  
+  if (soundSensorEnabled) { // Check if sound sensor is enabled
+    int SensorData = digitalRead(SoundSensor);
+    Serial.println(SensorData); // Print the value
+
+    if (SensorData == 1) {
+      if (LEDStatus == false) {
+        LEDStatus = true;
+        digitalWrite(pinRelay, LOW); // Turn on relay
+        isRelayOn = true;
+        Blynk.virtualWrite(V1, "Relay is ON!"); // Send message to Blynk
+        Serial.println("Relay is ON");
+      } else if (LEDStatus == true) {
+        LEDStatus = false;
+        digitalWrite(pinRelay, HIGH); // Turn off relay
+        isRelayOn = false;
+        Blynk.virtualWrite(V1, "Relay is OFF!"); // Send message to Blynk
+        Serial.println("Relay is OFF");
+      }
+      // Debounce delay
+      delay(500); // Add a delay to avoid multiple detections
+    }
+  }
+}
